@@ -8,7 +8,17 @@ import {
   importDataJson,
   saveDataOverride,
 } from "@/lib/data-store";
+import {
+  isSupabaseConfigured,
+  loadAttemptsFromCloud,
+  loadCloudData,
+  loadWrongBookFromCloud,
+  saveAttemptToCloud,
+  saveKnowledgeDataToCloud,
+  saveWrongBookItemToCloud,
+} from "@/lib/cloud-data-store";
 import { useEffectiveData } from "@/lib/storage-hooks";
+import { getPracticeHistory, getWrongBook, savePracticeHistory, saveWrongBook } from "@/lib/storage";
 import type { ExtensionWord, KnowledgeDataSet, KnowledgePhrase, KnowledgeSentence, KnowledgeWord } from "@/lib/types";
 
 type EditableType = "words" | "phrases" | "sentences" | "extensionWords";
@@ -45,9 +55,12 @@ export default function AdminDataPage() {
   const [form, setForm] = useState(emptyForm);
   const [importText, setImportText] = useState("");
   const [message, setMessage] = useState("");
+  const [cloudMessage, setCloudMessage] = useState("");
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const selectedUnit = data.units.find((unit) => unit.id === unitId) ?? data.units[0];
   const selectedCategory = data.extensionCategories.find((category) => category.id === categoryId) ?? data.extensionCategories[0];
+  const cloudConfigured = isSupabaseConfigured();
 
   const items = useMemo(() => {
     if (type === "extensionWords") {
@@ -223,6 +236,85 @@ export default function AdminDataPage() {
     setMessage("已恢复默认数据。");
   }
 
+  async function runCloudAction(action: () => Promise<string>) {
+    if (!cloudConfigured) {
+      setCloudMessage("Supabase 未配置，当前仍使用本地 localStorage 模式。");
+      return;
+    }
+
+    setIsSyncing(true);
+    setCloudMessage("正在同步...");
+
+    try {
+      setCloudMessage(await action());
+    } catch (error) {
+      setCloudMessage(error instanceof Error ? error.message : "云端同步失败。");
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
+  async function handleUploadKnowledge() {
+    await runCloudAction(async () => {
+      const result = await saveKnowledgeDataToCloud(data);
+      return result.message;
+    });
+  }
+
+  async function handlePullKnowledge() {
+    await runCloudAction(async () => {
+      const cloudData = await loadCloudData();
+      saveDataOverride(cloudData);
+      setData(cloneData(cloudData));
+      resetForm();
+      return "已从 Supabase 拉取知识库数据，并保存为本地覆盖数据。";
+    });
+  }
+
+  async function handleUploadWrongBook() {
+    await runCloudAction(async () => {
+      const items = getWrongBook();
+
+      if (items.length === 0) {
+        return "本地错题本为空，无需上传。";
+      }
+
+      const results = await Promise.all(items.map((item) => saveWrongBookItemToCloud(item)));
+      const successCount = results.filter((result) => result.ok).length;
+      return `错题本上传完成：成功 ${successCount} 条，失败 ${items.length - successCount} 条。`;
+    });
+  }
+
+  async function handlePullWrongBook() {
+    await runCloudAction(async () => {
+      const items = await loadWrongBookFromCloud();
+      saveWrongBook(items);
+      return `已从 Supabase 拉取错题本：${items.length} 条。`;
+    });
+  }
+
+  async function handleUploadHistory() {
+    await runCloudAction(async () => {
+      const attempts = getPracticeHistory();
+
+      if (attempts.length === 0) {
+        return "本地练习历史为空，无需上传。";
+      }
+
+      const results = await Promise.all(attempts.map((attempt) => saveAttemptToCloud(attempt)));
+      const successCount = results.filter((result) => result.ok).length;
+      return `练习历史上传完成：成功 ${successCount} 条，失败 ${attempts.length - successCount} 条。`;
+    });
+  }
+
+  async function handlePullHistory() {
+    await runCloudAction(async () => {
+      const attempts = await loadAttemptsFromCloud();
+      savePracticeHistory(attempts);
+      return `已从 Supabase 拉取练习历史：${attempts.length} 条。`;
+    });
+  }
+
   return (
     <main className="page-shell">
       <section className="page-heading">
@@ -360,6 +452,34 @@ export default function AdminDataPage() {
             />
           </label>
           <button type="button" className="primary-button full-width" onClick={handleImport}>导入 JSON</button>
+
+          <div className="cloud-sync-block">
+            <h2>云端同步</h2>
+            <p className="muted-text">
+              当前模式：{cloudConfigured ? "Supabase 已配置" : "本地 localStorage"}
+            </p>
+            {cloudMessage ? <p className="error-text">{cloudMessage}</p> : null}
+            <div className="stack-actions">
+              <button type="button" className="secondary-button full-width" onClick={handleUploadKnowledge} disabled={isSyncing}>
+                上传本地知识库到 Supabase
+              </button>
+              <button type="button" className="secondary-button full-width" onClick={handlePullKnowledge} disabled={isSyncing}>
+                从 Supabase 拉取知识库
+              </button>
+              <button type="button" className="secondary-button full-width" onClick={handleUploadWrongBook} disabled={isSyncing}>
+                上传错题本
+              </button>
+              <button type="button" className="secondary-button full-width" onClick={handlePullWrongBook} disabled={isSyncing}>
+                拉取错题本
+              </button>
+              <button type="button" className="secondary-button full-width" onClick={handleUploadHistory} disabled={isSyncing}>
+                上传练习历史
+              </button>
+              <button type="button" className="secondary-button full-width" onClick={handlePullHistory} disabled={isSyncing}>
+                拉取练习历史
+              </button>
+            </div>
+          </div>
         </aside>
       </section>
     </main>
