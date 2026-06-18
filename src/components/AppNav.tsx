@@ -8,6 +8,7 @@ const navItems = [
   { href: "/knowledge", label: "知识清单库" },
   { href: "/extension-vocab", label: "拓展词汇库" },
   { href: "/generator", label: "练习生成器" },
+  { href: "/import", label: "导入知识清单" },
   { href: "/data-review", label: "数据校对" },
   { href: "/admin-data", label: "数据管理" },
   { href: "/history", label: "练习历史" },

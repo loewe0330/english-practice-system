@@ -49,6 +49,8 @@ export interface Unit {
   phrases: KnowledgePhrase[];
   sentences: KnowledgeSentence[];
   grammarPoints: GrammarPoint[];
+  phonics?: string[];
+  writing?: string[];
 }
 
 export interface KnowledgeWord {

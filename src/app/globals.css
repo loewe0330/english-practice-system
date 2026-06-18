@@ -592,6 +592,103 @@ th {
   cursor: pointer;
 }
 
+.upload-dropzone {
+  display: grid;
+  min-height: 118px;
+  place-items: center;
+  border: 1px dashed var(--primary);
+  border-radius: 8px;
+  padding: 22px;
+  color: var(--primary-dark);
+  background: var(--surface-soft);
+  font-weight: 800;
+  text-align: center;
+  cursor: pointer;
+}
+
+.upload-dropzone input {
+  display: none;
+}
+
+.file-summary {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #ffffff;
+}
+
+.file-summary span,
+.helper-text {
+  color: var(--muted);
+}
+
+.large-textarea {
+  width: 100%;
+  min-height: 280px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  color: var(--text);
+  background: #ffffff;
+  resize: vertical;
+}
+
+.plain-checkbox {
+  min-height: 44px;
+}
+
+.import-counts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.import-counts span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: #ffffff;
+}
+
+.import-preview-panel {
+  margin-top: 22px;
+}
+
+.editable-table-block {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.editable-table-wrap input,
+.editable-table-wrap textarea {
+  width: 100%;
+  min-width: 180px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  color: var(--text);
+  background: #ffffff;
+}
+
+.editable-table-wrap textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.warning-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
 .summary-panel {
   position: sticky;
   top: 92px;
