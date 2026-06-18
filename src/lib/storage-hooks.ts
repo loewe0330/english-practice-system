@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useSyncExternalStore } from "react";
+import { getDefaultData, validateDataSet } from "./data-store.ts";
 import { storageKeys } from "./storage.ts";
-import type { PracticeAttempt, PracticePaper, WrongBookItem } from "./types.ts";
+import type { KnowledgeDataSet, PracticeAttempt, PracticePaper, WrongBookItem } from "./types.ts";
 
 function subscribe(callback: () => void) {
   window.addEventListener("storage", callback);
@@ -54,4 +55,29 @@ export function useLastAttempt() {
 
 export function useWrongBookItems() {
   return useStoredJson<WrongBookItem[]>(storageKeys.wrongBook, []);
+}
+
+export function usePracticeHistory() {
+  return useStoredJson<PracticeAttempt[]>(storageKeys.practiceHistory, []);
+}
+
+export function useEffectiveData(): KnowledgeDataSet {
+  const rawValue = useSyncExternalStore(
+    subscribe,
+    () => getRawValue(storageKeys.dataOverride),
+    () => "",
+  );
+
+  return useMemo(() => {
+    if (!rawValue) {
+      return getDefaultData();
+    }
+
+    try {
+      const result = validateDataSet(JSON.parse(rawValue) as unknown);
+      return result.ok ? result.data : getDefaultData();
+    } catch {
+      return getDefaultData();
+    }
+  }, [rawValue]);
 }

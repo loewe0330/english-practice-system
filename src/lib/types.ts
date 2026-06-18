@@ -160,7 +160,12 @@ export interface PracticeQuestion {
 export interface PracticeAttempt {
   id: string;
   paperId: string;
+  title?: string;
+  createdAt?: string;
   submittedAt: string;
+  totalQuestions?: number;
+  correctCount?: number;
+  wrongCount?: number;
   total: number;
   correct: number;
   blank: number;
@@ -168,6 +173,8 @@ export interface PracticeAttempt {
   punctuationErrors: number;
   wrong: number;
   score: number;
+  sourceSummary?: string;
+  paper?: PracticePaper;
   answers: PracticeAnswer[];
 }
 
@@ -195,7 +202,18 @@ export interface WrongBookItem {
   correctAnswer: string;
   studentAnswer: string;
   errorType: Exclude<ErrorType, "correct">;
+  wrongCount?: number;
   errorCount: number;
   firstWrongAt: string;
   lastWrongAt: string;
+  mastered?: boolean;
+}
+
+export interface KnowledgeDataSet {
+  grades: GradeLevel[];
+  books: Book[];
+  units: Unit[];
+  extensionCategories: ExtensionCategory[];
+  extensionWords: ExtensionWord[];
+  extensionPhrases: ExtensionPhrase[];
 }

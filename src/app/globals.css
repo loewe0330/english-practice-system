@@ -441,6 +441,21 @@ th {
   margin-bottom: 20px;
 }
 
+.filter-panel.four-columns {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.filter-panel.three-columns {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.compact-filter {
+  margin-bottom: 0;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+}
+
 .filter-panel label {
   display: grid;
   gap: 8px;
@@ -480,6 +495,101 @@ th {
 .checkbox-row input {
   width: 18px;
   height: 18px;
+}
+
+.divider {
+  height: 1px;
+  margin: 22px 0;
+  background: var(--line);
+}
+
+.stack-actions,
+.warning-stack,
+.table-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.table-actions {
+  min-width: 132px;
+}
+
+.compact-row {
+  margin-top: 18px;
+  margin-bottom: 12px;
+}
+
+.danger-button {
+  color: var(--danger);
+}
+
+.warning-row {
+  background: #fff7ed;
+}
+
+.warning-badge {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 5px 8px;
+  color: #7c2d12;
+  background: #fed7aa;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.muted-text {
+  color: var(--muted);
+}
+
+.admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.admin-form-grid label,
+.json-import {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.admin-form-grid input,
+.admin-form-grid select,
+.json-import textarea {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--text);
+  background: #ffffff;
+}
+
+.json-import {
+  margin: 18px 0 12px;
+}
+
+.json-import textarea {
+  min-height: 180px;
+  padding: 12px;
+  resize: vertical;
+}
+
+.file-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.file-button input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
 .summary-panel {
@@ -716,6 +826,9 @@ th {
   .form-layout,
   .result-row dl,
   .filter-panel,
+  .filter-panel.four-columns,
+  .filter-panel.three-columns,
+  .admin-form-grid,
   .checkbox-grid {
     grid-template-columns: 1fr;
   }

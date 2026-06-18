@@ -1,15 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { Suspense, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { StatCard } from "@/components/StatCard";
 import { formatSourceType } from "@/lib/practice";
-import { getBookById, getGradeById, getUnitById } from "@/lib/mock-data";
-import { useCurrentPaper, useLastAttempt } from "@/lib/storage-hooks";
+import { useCurrentPaper, useEffectiveData, useLastAttempt, usePracticeHistory } from "@/lib/storage-hooks";
 
-export default function ResultsPage() {
-  const paper = useCurrentPaper();
-  const attempt = useLastAttempt();
+function ResultsContent() {
+  const currentPaper = useCurrentPaper();
+  const lastAttempt = useLastAttempt();
+  const history = usePracticeHistory();
+  const data = useEffectiveData();
+  const searchParams = useSearchParams();
+  const attemptId = searchParams.get("attemptId") ?? "";
+
+  const selectedAttempt = useMemo(
+    () => (attemptId ? history.find((item) => item.id === attemptId) ?? null : lastAttempt),
+    [attemptId, history, lastAttempt],
+  );
+  const paper = selectedAttempt?.paper ?? currentPaper;
+  const attempt = selectedAttempt;
 
   const answerRows = useMemo(() => {
     if (!paper || !attempt) {
@@ -40,8 +51,8 @@ export default function ResultsPage() {
     <main className="page-shell">
       <section className="page-heading">
         <p className="eyebrow">批改完成</p>
-        <h1>本次练习结果</h1>
-        <p>{paper.title}</p>
+        <h1>{attemptId ? "历史练习结果" : "本次练习结果"}</h1>
+        <p>{attempt.title ?? paper.title}</p>
       </section>
 
       <section className="stats-grid">
@@ -71,15 +82,15 @@ export default function ResultsPage() {
               <dl>
                 <div>
                   <dt>年级</dt>
-                  <dd>{getGradeById(question.gradeId)?.displayName ?? "未分类"}</dd>
+                  <dd>{data.grades.find((grade) => grade.id === question.gradeId)?.displayName ?? "未分类"}</dd>
                 </div>
                 <div>
                   <dt>教材</dt>
-                  <dd>{getBookById(question.bookId)?.name ?? "拓展词汇"}</dd>
+                  <dd>{data.books.find((book) => book.id === question.bookId)?.name ?? "拓展词汇"}</dd>
                 </div>
                 <div>
                   <dt>单元</dt>
-                  <dd>{getUnitById(question.unitId)?.displayName ?? "分类"}</dd>
+                  <dd>{data.units.find((unit) => unit.id === question.unitId)?.displayName ?? "分类"}</dd>
                 </div>
                 <div>
                   <dt>你的答案</dt>
@@ -104,5 +115,13 @@ export default function ResultsPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+export default function ResultsPage() {
+  return (
+    <Suspense fallback={<main className="page-shell"><section className="empty-state"><h1>正在读取结果</h1></section></main>}>
+      <ResultsContent />
+    </Suspense>
   );
 }

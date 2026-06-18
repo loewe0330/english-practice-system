@@ -1,6 +1,10 @@
-import { extensionCategories, extensionPhrases, extensionWords, grades } from "@/lib/mock-data";
+"use client";
+
+import { useEffectiveData } from "@/lib/storage-hooks";
 
 export default function ExtensionVocabPage() {
+  const data = useEffectiveData();
+
   return (
     <main className="page-shell">
       <section className="page-heading">
@@ -10,9 +14,9 @@ export default function ExtensionVocabPage() {
       </section>
 
       <section className="category-stack">
-        {extensionCategories.map((category) => {
-          const words = extensionWords.filter((word) => word.categoryId === category.id);
-          const phrases = extensionPhrases.filter((phrase) => phrase.categoryId === category.id);
+        {data.extensionCategories.map((category) => {
+          const words = data.extensionWords.filter((word) => word.categoryId === category.id);
+          const phrases = data.extensionPhrases.filter((phrase) => phrase.categoryId === category.id);
 
           return (
             <article key={category.id} className="panel">
@@ -41,7 +45,7 @@ export default function ExtensionVocabPage() {
                         <td>{word.english}</td>
                         <td>{word.chinese}</td>
                         <td>{word.partOfSpeech}</td>
-                        <td>{word.recommendedGradeIds.map((id) => grades.find((grade) => grade.id === id)?.displayName ?? "未分类").join("、")}</td>
+                        <td>{word.recommendedGradeIds.map((id) => data.grades.find((grade) => grade.id === id)?.displayName ?? "未分类").join("、")}</td>
                         <td>{word.difficulty}</td>
                       </tr>
                     ))}
@@ -50,7 +54,7 @@ export default function ExtensionVocabPage() {
                         <td>{phrase.english}</td>
                         <td>{phrase.chinese}</td>
                         <td>phrase</td>
-                        <td>{phrase.recommendedGradeIds.map((id) => grades.find((grade) => grade.id === id)?.displayName ?? "未分类").join("、")}</td>
+                        <td>{phrase.recommendedGradeIds.map((id) => data.grades.find((grade) => grade.id === id)?.displayName ?? "未分类").join("、")}</td>
                         <td>{phrase.difficulty}</td>
                       </tr>
                     ))}

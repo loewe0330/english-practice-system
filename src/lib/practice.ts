@@ -3,10 +3,6 @@ import {
   extensionCategories,
   extensionPhrases,
   extensionWords,
-  getBookById,
-  getCategoryName,
-  getGradeById,
-  getUnitById,
   grades,
   units,
 } from "../data/index.ts";
@@ -17,11 +13,23 @@ import type {
   KnowledgeSentence,
   KnowledgeWord,
   PracticeContentType,
+  KnowledgeDataSet,
   PracticePaper,
   PracticeQuestion,
   QuestionType,
   SourceType,
 } from "./types.ts";
+
+function getPracticeData(data?: KnowledgeDataSet): KnowledgeDataSet {
+  return data ?? {
+    grades,
+    books,
+    units,
+    extensionCategories,
+    extensionWords,
+    extensionPhrases,
+  };
+}
 
 export type KnowledgeSelection = Exclude<PracticeContentType, "extension">;
 
@@ -61,22 +69,26 @@ function sourceLabel({
   unitId,
   categoryId,
   typeLabel,
+  data,
 }: {
   gradeId?: string;
   bookId?: string;
   unitId?: string;
   categoryId?: string;
   typeLabel: string;
+  data: KnowledgeDataSet;
 }) {
-  const gradeName = getGradeById(gradeId)?.displayName ?? "未分类";
-  const bookName = getBookById(bookId)?.name ?? "拓展词汇";
-  const unitName = getUnitById(unitId)?.displayName;
-  const categoryName = categoryId ? getCategoryName(categoryId) : undefined;
+  const gradeName = data.grades.find((grade) => grade.id === gradeId)?.displayName ?? "未分类";
+  const bookName = data.books.find((book) => book.id === bookId)?.name ?? "拓展词汇";
+  const unitName = data.units.find((unit) => unit.id === unitId)?.displayName;
+  const categoryName = categoryId
+    ? data.extensionCategories.find((category) => category.id === categoryId)?.name ?? "未分类"
+    : undefined;
 
   return [gradeName, bookName, unitName ?? categoryName, typeLabel].filter(Boolean).join(" · ");
 }
 
-function wordToQuestion(word: KnowledgeWord): PracticeQuestion {
+function wordToQuestion(word: KnowledgeWord, data: KnowledgeDataSet): PracticeQuestion {
   return {
     id: `q-${word.id}`,
     gradeId: word.gradeId,
@@ -93,11 +105,12 @@ function wordToQuestion(word: KnowledgeWord): PracticeQuestion {
       bookId: word.bookId,
       unitId: word.unitId,
       typeLabel: "单词",
+      data,
     }),
   };
 }
 
-function phraseToQuestion(phrase: KnowledgePhrase): PracticeQuestion {
+function phraseToQuestion(phrase: KnowledgePhrase, data: KnowledgeDataSet): PracticeQuestion {
   return {
     id: `q-${phrase.id}`,
     gradeId: phrase.gradeId,
@@ -114,11 +127,12 @@ function phraseToQuestion(phrase: KnowledgePhrase): PracticeQuestion {
       bookId: phrase.bookId,
       unitId: phrase.unitId,
       typeLabel: "词组",
+      data,
     }),
   };
 }
 
-function sentenceToQuestion(sentence: KnowledgeSentence): PracticeQuestion {
+function sentenceToQuestion(sentence: KnowledgeSentence, data: KnowledgeDataSet): PracticeQuestion {
   return {
     id: `q-${sentence.id}`,
     gradeId: sentence.gradeId,
@@ -135,11 +149,12 @@ function sentenceToQuestion(sentence: KnowledgeSentence): PracticeQuestion {
       bookId: sentence.bookId,
       unitId: sentence.unitId,
       typeLabel: "句子",
+      data,
     }),
   };
 }
 
-function extensionWordToQuestion(word: ExtensionWord): PracticeQuestion {
+function extensionWordToQuestion(word: ExtensionWord, data: KnowledgeDataSet): PracticeQuestion {
   const gradeId = word.gradeId ?? word.recommendedGradeIds[0];
 
   return {
@@ -156,11 +171,12 @@ function extensionWordToQuestion(word: ExtensionWord): PracticeQuestion {
       gradeId,
       categoryId: word.categoryId,
       typeLabel: "拓展词汇",
+      data,
     }),
   };
 }
 
-function extensionPhraseToQuestion(phrase: ExtensionPhrase): PracticeQuestion {
+function extensionPhraseToQuestion(phrase: ExtensionPhrase, data: KnowledgeDataSet): PracticeQuestion {
   const gradeId = phrase.gradeId ?? phrase.recommendedGradeIds[0];
 
   return {
@@ -177,6 +193,7 @@ function extensionPhraseToQuestion(phrase: ExtensionPhrase): PracticeQuestion {
       gradeId,
       categoryId: phrase.categoryId,
       typeLabel: "拓展词汇",
+      data,
     }),
   };
 }
@@ -192,16 +209,16 @@ export interface BuildPracticePaperInput {
   knowledgeSelections?: KnowledgeSelection[];
 }
 
-function normalizeBuildInput(input: BuildPracticePaperInput) {
+function normalizeBuildInput(input: BuildPracticePaperInput, data: KnowledgeDataSet) {
   const legacyKnowledgeSelections = input.knowledgeSelections ?? [];
   const contentTypes = input.contentTypes ?? [
     ...legacyKnowledgeSelections,
     ...(input.sourceMode === "extension" ? ["extension" as const] : []),
   ];
-  const gradeId = input.gradeId ?? grades[0]?.id;
-  const unitIds = input.unitIds ?? (input.sourceMode === "knowledge" ? [units[0]?.id].filter(Boolean) : []);
+  const gradeId = input.gradeId ?? data.grades[0]?.id;
+  const unitIds = input.unitIds ?? (input.sourceMode === "knowledge" ? [data.units[0]?.id].filter(Boolean) : []);
   const bookIds = input.bookIds ?? [
-    ...new Set(unitIds.map((unitId) => getUnitById(unitId)?.bookId).filter((bookId): bookId is string => Boolean(bookId))),
+    ...new Set(unitIds.map((unitId) => data.units.find((unit) => unit.id === unitId)?.bookId).filter((bookId): bookId is string => Boolean(bookId))),
   ];
   const categoryIds = input.categoryIds ?? [];
 
@@ -224,13 +241,13 @@ function contentTypeRank(question: PracticeQuestion) {
   return 6;
 }
 
-function sortQuestion(a: PracticeQuestion, b: PracticeQuestion) {
-  const gradeA = getGradeById(a.gradeId)?.sortOrder ?? 999;
-  const gradeB = getGradeById(b.gradeId)?.sortOrder ?? 999;
-  const bookA = getBookById(a.bookId)?.sortOrder ?? 999;
-  const bookB = getBookById(b.bookId)?.sortOrder ?? 999;
-  const unitA = getUnitById(a.unitId)?.unitNo ?? 999;
-  const unitB = getUnitById(b.unitId)?.unitNo ?? 999;
+function sortQuestion(a: PracticeQuestion, b: PracticeQuestion, data: KnowledgeDataSet) {
+  const gradeA = data.grades.find((grade) => grade.id === a.gradeId)?.sortOrder ?? 999;
+  const gradeB = data.grades.find((grade) => grade.id === b.gradeId)?.sortOrder ?? 999;
+  const bookA = data.books.find((book) => book.id === a.bookId)?.sortOrder ?? 999;
+  const bookB = data.books.find((book) => book.id === b.bookId)?.sortOrder ?? 999;
+  const unitA = data.units.find((unit) => unit.id === a.unitId)?.unitNo ?? 999;
+  const unitB = data.units.find((unit) => unit.id === b.unitId)?.unitNo ?? 999;
 
   return (
     gradeA - gradeB ||
@@ -241,10 +258,11 @@ function sortQuestion(a: PracticeQuestion, b: PracticeQuestion) {
   );
 }
 
-export function buildPracticePaper(input: BuildPracticePaperInput): PracticePaper {
-  const normalized = normalizeBuildInput(input);
+export function buildPracticePaper(input: BuildPracticePaperInput, dataInput?: KnowledgeDataSet): PracticePaper {
+  const data = getPracticeData(dataInput);
+  const normalized = normalizeBuildInput(input, data);
   const contentTypes = new Set(normalized.contentTypes);
-  const selectedUnits = units.filter(
+  const selectedUnits = data.units.filter(
     (unit) =>
       unit.gradeId === normalized.gradeId &&
       normalized.unitIds.includes(unit.id) &&
@@ -253,40 +271,40 @@ export function buildPracticePaper(input: BuildPracticePaperInput): PracticePape
   const questions: PracticeQuestion[] = [];
 
   selectedUnits.forEach((unit) => {
-    if (contentTypes.has("words")) questions.push(...unit.words.map(wordToQuestion));
-    if (contentTypes.has("phrases")) questions.push(...unit.phrases.map(phraseToQuestion));
-    if (contentTypes.has("sentences")) questions.push(...unit.sentences.map(sentenceToQuestion));
+    if (contentTypes.has("words")) questions.push(...unit.words.map((word) => wordToQuestion(word, data)));
+    if (contentTypes.has("phrases")) questions.push(...unit.phrases.map((phrase) => phraseToQuestion(phrase, data)));
+    if (contentTypes.has("sentences")) questions.push(...unit.sentences.map((sentence) => sentenceToQuestion(sentence, data)));
   });
 
   if (contentTypes.has("extension")) {
     const selectedCategoryIds = new Set(normalized.categoryIds);
     questions.push(
-      ...extensionWords
+      ...data.extensionWords
         .filter(
           (word) =>
             word.recommendedGradeIds.includes(normalized.gradeId) &&
             selectedCategoryIds.has(word.categoryId),
         )
-        .map(extensionWordToQuestion),
+        .map((word) => extensionWordToQuestion(word, data)),
     );
     questions.push(
-      ...extensionPhrases
+      ...data.extensionPhrases
         .filter(
           (phrase) =>
             phrase.recommendedGradeIds.includes(normalized.gradeId) &&
             selectedCategoryIds.has(phrase.categoryId),
         )
-        .map(extensionPhraseToQuestion),
+        .map((phrase) => extensionPhraseToQuestion(phrase, data)),
     );
   }
 
   const sortedQuestions = questions
     .map((question) => ({ ...question, questionType: normalized.questionType }))
-    .sort(sortQuestion);
+    .sort((a, b) => sortQuestion(a, b, data));
 
   const hasKnowledge = selectedUnits.length > 0 && normalized.contentTypes.some((type) => type !== "extension");
   const hasExtension = normalized.contentTypes.includes("extension");
-  const gradeName = getGradeById(normalized.gradeId)?.displayName ?? "未分类";
+  const gradeName = data.grades.find((grade) => grade.id === normalized.gradeId)?.displayName ?? "未分类";
   const titleParts = [
     gradeName,
     hasKnowledge ? `${selectedUnits.length} 个单元` : undefined,
@@ -321,17 +339,21 @@ export function getSourceDisplay(question: Pick<PracticeQuestion, "sourceLabel" 
     unitId: question.unitId,
     categoryId: question.categoryId,
     typeLabel: formatSourceType(question.sourceType),
+    data: getPracticeData(),
   });
 }
 
-export function getBookOptionsByGrade(gradeId: string) {
-  return books.filter((book) => book.gradeId === gradeId).sort((a, b) => a.sortOrder - b.sortOrder);
+export function getBookOptionsByGrade(gradeId: string, dataInput?: KnowledgeDataSet) {
+  const data = getPracticeData(dataInput);
+  return data.books.filter((book) => book.gradeId === gradeId).sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-export function getUnitOptionsByBooks(gradeId: string, bookIds: string[]) {
-  return units.filter((unit) => unit.gradeId === gradeId && bookIds.includes(unit.bookId));
+export function getUnitOptionsByBooks(gradeId: string, bookIds: string[], dataInput?: KnowledgeDataSet) {
+  const data = getPracticeData(dataInput);
+  return data.units.filter((unit) => unit.gradeId === gradeId && bookIds.includes(unit.bookId));
 }
 
-export function getCategoryOptionsByGrade(gradeId: string) {
-  return extensionCategories.filter((category) => category.recommendedGradeIds.includes(gradeId));
+export function getCategoryOptionsByGrade(gradeId: string, dataInput?: KnowledgeDataSet) {
+  const data = getPracticeData(dataInput);
+  return data.extensionCategories.filter((category) => category.recommendedGradeIds.includes(gradeId));
 }

@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { books, grades, units } from "@/lib/mock-data";
 import {
   buildPracticePaper,
   contentTypeLabels,
@@ -11,12 +10,20 @@ import {
   getUnitOptionsByBooks,
 } from "@/lib/practice";
 import { saveCurrentPaper } from "@/lib/storage";
+import { useEffectiveData, useWrongBookItems } from "@/lib/storage-hooks";
 import type { PracticeContentType } from "@/lib/types";
+import {
+  buildWrongBookPracticePaper,
+  selectWrongPracticeItems,
+  type WrongPracticeMode,
+} from "@/lib/wrong-practice";
 
 const contentOptions: PracticeContentType[] = ["words", "phrases", "sentences", "extension"];
 
 export default function GeneratorPage() {
   const router = useRouter();
+  const data = useEffectiveData();
+  const wrongBookItems = useWrongBookItems();
   const [gradeId, setGradeId] = useState("primary-g4b");
   const [bookIds, setBookIds] = useState<string[]>(["yilin-4b"]);
   const [unitIds, setUnitIds] = useState<string[]>(["yilin-4b-u1"]);
@@ -24,9 +31,9 @@ export default function GeneratorPage() {
   const [categoryIds, setCategoryIds] = useState<string[]>(["ext-animal"]);
   const [error, setError] = useState("");
 
-  const availableBooks = getBookOptionsByGrade(gradeId);
-  const availableUnits = getUnitOptionsByBooks(gradeId, bookIds);
-  const availableCategories = getCategoryOptionsByGrade(gradeId);
+  const availableBooks = getBookOptionsByGrade(gradeId, data);
+  const availableUnits = getUnitOptionsByBooks(gradeId, bookIds, data);
+  const availableCategories = getCategoryOptionsByGrade(gradeId, data);
 
   const estimatedPaper = useMemo(
     () =>
@@ -37,8 +44,8 @@ export default function GeneratorPage() {
         contentTypes,
         categoryIds,
         questionType: "zh_to_en",
-      }),
-    [bookIds, categoryIds, contentTypes, gradeId, unitIds],
+      }, data),
+    [bookIds, categoryIds, contentTypes, data, gradeId, unitIds],
   );
 
   function toggle(list: string[], value: string, setter: (next: string[]) => void) {
@@ -52,9 +59,9 @@ export default function GeneratorPage() {
   }
 
   function handleGradeChange(nextGradeId: string) {
-    const nextBooks = books.filter((book) => book.gradeId === nextGradeId).map((book) => book.id);
+    const nextBooks = data.books.filter((book) => book.gradeId === nextGradeId).map((book) => book.id);
     const firstBookId = nextBooks[0];
-    const nextUnits = units.filter((unit) => unit.gradeId === nextGradeId && unit.bookId === firstBookId);
+    const nextUnits = data.units.filter((unit) => unit.gradeId === nextGradeId && unit.bookId === firstBookId);
     setGradeId(nextGradeId);
     setBookIds(firstBookId ? [firstBookId] : []);
     setUnitIds(nextUnits[0] ? [nextUnits[0].id] : []);
@@ -67,6 +74,18 @@ export default function GeneratorPage() {
     }
 
     saveCurrentPaper(estimatedPaper);
+    router.push("/practice");
+  }
+
+  function handleWrongPractice(mode: WrongPracticeMode) {
+    const selectedItems = selectWrongPracticeItems(wrongBookItems, mode);
+
+    if (selectedItems.length === 0) {
+      setError("当前没有符合条件的未掌握错题。");
+      return;
+    }
+
+    saveCurrentPaper(buildWrongBookPracticePaper(selectedItems, "错题再练 · 中文写英文"));
     router.push("/practice");
   }
 
@@ -83,7 +102,7 @@ export default function GeneratorPage() {
           <div className="choice-group">
             <h2>1. 选择年级</h2>
             <select value={gradeId} onChange={(event) => handleGradeChange(event.target.value)}>
-              {grades.map((grade) => (
+              {data.grades.map((grade) => (
                 <option key={grade.id} value={grade.id}>{grade.displayName}</option>
               ))}
             </select>
@@ -115,7 +134,7 @@ export default function GeneratorPage() {
                     checked={unitIds.includes(unit.id)}
                     onChange={() => toggle(unitIds, unit.id, setUnitIds)}
                   />
-                  <span>{books.find((book) => book.id === unit.bookId)?.name} · {unit.displayName}</span>
+                  <span>{data.books.find((book) => book.id === unit.bookId)?.name} · {unit.displayName}</span>
                 </label>
               ))}
             </div>
@@ -172,6 +191,21 @@ export default function GeneratorPage() {
           <button type="button" className="primary-button full-width" onClick={handleGenerate}>
             生成练习
           </button>
+
+          <div className="divider" />
+          <h2>从错题本生成</h2>
+          <p>当前错题本：{wrongBookItems.length} 条</p>
+          <div className="stack-actions">
+            <button type="button" className="secondary-button full-width" onClick={() => handleWrongPractice("all-unmastered")}>
+              所有未掌握错题
+            </button>
+            <button type="button" className="secondary-button full-width" onClick={() => handleWrongPractice("recent")}>
+              最近错题
+            </button>
+            <button type="button" className="secondary-button full-width" onClick={() => handleWrongPractice("frequent")}>
+              错误次数 ≥ 2
+            </button>
+          </div>
         </aside>
       </section>
     </main>

@@ -1,29 +1,30 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { books, grades, units } from "@/lib/mock-data";
+import { useEffectiveData } from "@/lib/storage-hooks";
 
 export default function KnowledgePage() {
+  const data = useEffectiveData();
   const [gradeId, setGradeId] = useState("all");
   const [bookId, setBookId] = useState("all");
   const [unitId, setUnitId] = useState("all");
 
   const filteredUnits = useMemo(
     () =>
-      units.filter(
+      data.units.filter(
         (unit) =>
           (gradeId === "all" || unit.gradeId === gradeId) &&
           (bookId === "all" || unit.bookId === bookId) &&
           (unitId === "all" || unit.id === unitId),
       ),
-    [bookId, gradeId, unitId],
+    [bookId, data.units, gradeId, unitId],
   );
 
-  const groupedGrades = grades
+  const groupedGrades = data.grades
     .filter((grade) => gradeId === "all" || grade.id === gradeId)
     .map((grade) => ({
       grade,
-      books: books
+      books: data.books
         .filter((book) => book.gradeId === grade.id && (bookId === "all" || book.id === bookId))
         .map((book) => ({
           book,
@@ -46,7 +47,7 @@ export default function KnowledgePage() {
           <span>年级</span>
           <select value={gradeId} onChange={(event) => setGradeId(event.target.value)}>
             <option value="all">全部</option>
-            {grades.map((grade) => (
+            {data.grades.map((grade) => (
               <option key={grade.id} value={grade.id}>{grade.displayName}</option>
             ))}
           </select>
@@ -55,7 +56,7 @@ export default function KnowledgePage() {
           <span>教材</span>
           <select value={bookId} onChange={(event) => setBookId(event.target.value)}>
             <option value="all">全部</option>
-            {books.map((book) => (
+            {data.books.map((book) => (
               <option key={book.id} value={book.id}>{book.name}</option>
             ))}
           </select>
@@ -64,9 +65,9 @@ export default function KnowledgePage() {
           <span>单元</span>
           <select value={unitId} onChange={(event) => setUnitId(event.target.value)}>
             <option value="all">全部</option>
-            {units.map((unit) => (
+            {data.units.map((unit) => (
               <option key={unit.id} value={unit.id}>
-                {books.find((book) => book.id === unit.bookId)?.name} {unit.displayName}
+                {data.books.find((book) => book.id === unit.bookId)?.name} {unit.displayName}
               </option>
             ))}
           </select>

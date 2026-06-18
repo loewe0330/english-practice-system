@@ -6,7 +6,9 @@ import { useState } from "react";
 import { PracticeQuestionCard } from "@/components/PracticeQuestionCard";
 import { gradeAnswer } from "@/lib/grading";
 import { createId } from "@/lib/practice";
+import { enrichPracticeAttempt } from "@/lib/practice-history";
 import {
+  appendPracticeHistory,
   saveLastAttempt,
   upsertWrongBookItems,
 } from "@/lib/storage";
@@ -53,7 +55,7 @@ export default function PracticePage() {
     const wrong = gradedAnswers.filter((answer) => answer.errorType === "wrong").length;
     const score = paper.questions.length > 0 ? Math.round((correct / paper.questions.length) * 100) : 0;
 
-    saveLastAttempt({
+    const attempt = enrichPracticeAttempt({
       id: createId("attempt"),
       paperId: paper.id,
       submittedAt,
@@ -65,7 +67,10 @@ export default function PracticePage() {
       wrong,
       score,
       answers: gradedAnswers,
-    });
+    }, paper);
+
+    saveLastAttempt(attempt);
+    appendPracticeHistory(attempt);
 
     const wrongItems: WrongBookItem[] = gradedAnswers.flatMap((answer) => {
         if (answer.errorType === "correct") {
@@ -93,9 +98,11 @@ export default function PracticePage() {
           correctAnswer: question.correctAnswer,
           studentAnswer: answer.studentAnswer,
           errorType: answer.errorType,
+          wrongCount: 1,
           errorCount: 1,
           firstWrongAt: submittedAt,
           lastWrongAt: submittedAt,
+          mastered: false,
         } satisfies WrongBookItem];
       });
 
