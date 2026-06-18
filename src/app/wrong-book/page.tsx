@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { formatSourceType } from "@/lib/practice";
+import { getBookById, getCategoryName, getGradeById, getUnitById } from "@/lib/mock-data";
 import { useWrongBookItems } from "@/lib/storage-hooks";
 import type { SourceType } from "@/lib/types";
 
@@ -78,6 +79,9 @@ export default function WrongBookPage() {
             <table>
               <thead>
                 <tr>
+                  <th>年级</th>
+                  <th>教材/分类</th>
+                  <th>单元</th>
                   <th>来源</th>
                   <th>类型</th>
                   <th>中文题干</th>
@@ -90,6 +94,9 @@ export default function WrongBookPage() {
               <tbody>
                 {filteredItems.map((item) => (
                   <tr key={item.id}>
+                    <td>{getGradeById(item.gradeId)?.displayName ?? "未分类"}</td>
+                    <td>{getBookById(item.bookId)?.name ?? getCategoryName(item.categoryId)}</td>
+                    <td>{getUnitById(item.unitId)?.displayName ?? "拓展词汇"}</td>
                     <td>{item.sourceLabel}</td>
                     <td>{formatSourceType(item.sourceType)}</td>
                     <td>{item.prompt}</td>

@@ -1,0 +1,48 @@
+import { createUnit } from "../helpers.ts";
+
+export const sm3Unit5 = createUnit({
+  id: "sm3-u5",
+  bookId: "sm3",
+  unitNo: 5,
+  title: "Sea animals",
+  order: 105,
+  words: [
+    ["dolphin", "海豚", "n."],
+    ["turtle", "乌龟；海龟", "n."],
+    ["anchor", "锚", "n."],
+    ["octopus", "章鱼", "n."],
+    ["seahorse", "海马", "n."],
+    ["seal", "海豹", "n."],
+    ["starfish", "海星", "n."],
+    ["shell", "贝壳；壳", "n."],
+    ["giant", "巨大的", "adj.", false],
+    ["trap", "陷阱", "n.", false],
+    ["stuck", "卡住了", "adj.", false],
+  ],
+  phrases: [
+    ["sea birds", "海鸟", false],
+    ["on the beach", "在海滩上", false],
+    ["on the mat", "在垫子上", false],
+    ["in the sea", "在海里", false],
+    ["under the sea", "在海底", false],
+    ["in the pool", "在池子里", false],
+    ["in the tank", "在鱼缸里", false],
+    ["get ... out", "把……拿出来", false],
+  ],
+  sentences: [
+    ["Great auks were sea birds.", "大海雀是海鸟。"],
+    ["Their food was fish.", "它们的食物是鱼。"],
+    ["Baijis weren't sea dolphins.", "白鱀豚不是海豚。"],
+    ["The river wasn't very busy.", "这条河不是很繁忙。"],
+    ["Were you in the sea? No, I wasn't.", "那时候你在海里吗？不，我不在。"],
+    ["Was Tim on the beach? Yes, he was.", "那时候蒂姆在海滩上吗？是的，他在。"],
+    ["Where were you? In the sea.", "那时候你在哪里？在海里。"],
+    ["Were there shells on the beach? Yes, there were.", "那时候海滩上有贝壳吗？是的，有。"],
+    ["Was there a shark in the sea? No, there wasn't.", "那时候海里有鲨鱼吗？不，没有。"],
+  ],
+  grammarPoints: [
+    ["be 动词一般过去时", "表示过去某个时间的状态，am/is 变 was，are 变 were。", ["I was on the beach.", "They were in the sea."]],
+    ["过去时否定句", "was 的否定是 wasn't，were 的否定是 weren't。", ["There weren't red fish on the floor."]],
+    ["过去时问句", "一般疑问句将 was/were 提前；特殊疑问句用疑问词加一般疑问语序。", ["Was she on the beach?", "Where were you, Jane?"]],
+  ],
+});

@@ -1,4 +1,4 @@
-import type { PracticeAttempt, PracticePaper, WrongBookItem } from "./types";
+import type { PracticeAttempt, PracticePaper, WrongBookItem } from "./types.ts";
 
 export const storageKeys = {
   currentPaper: "english-practice.current-paper",

@@ -2,54 +2,71 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { extensionCategories, units } from "@/lib/mock-data";
+import { books, grades, units } from "@/lib/mock-data";
 import {
   buildPracticePaper,
-  knowledgeSelectionLabels,
-  type KnowledgeSelection,
+  contentTypeLabels,
+  getBookOptionsByGrade,
+  getCategoryOptionsByGrade,
+  getUnitOptionsByBooks,
 } from "@/lib/practice";
 import { saveCurrentPaper } from "@/lib/storage";
+import type { PracticeContentType } from "@/lib/types";
 
-const knowledgeOptions: KnowledgeSelection[] = ["words", "phrases", "sentences"];
+const contentOptions: PracticeContentType[] = ["words", "phrases", "sentences", "extension"];
 
 export default function GeneratorPage() {
   const router = useRouter();
-  const [sourceMode, setSourceMode] = useState<"knowledge" | "extension">("knowledge");
-  const [knowledgeSelections, setKnowledgeSelections] = useState<KnowledgeSelection[]>(["words"]);
+  const [gradeId, setGradeId] = useState("primary-g4b");
+  const [bookIds, setBookIds] = useState<string[]>(["yilin-4b"]);
+  const [unitIds, setUnitIds] = useState<string[]>(["yilin-4b-u1"]);
+  const [contentTypes, setContentTypes] = useState<PracticeContentType[]>(["words"]);
   const [categoryIds, setCategoryIds] = useState<string[]>(["ext-animal"]);
   const [error, setError] = useState("");
-  const unit = units[0];
 
-  const estimatedCount = useMemo(() => {
-    const paper = buildPracticePaper({ sourceMode, knowledgeSelections, categoryIds });
-    return paper.questions.length;
-  }, [sourceMode, knowledgeSelections, categoryIds]);
+  const availableBooks = getBookOptionsByGrade(gradeId);
+  const availableUnits = getUnitOptionsByBooks(gradeId, bookIds);
+  const availableCategories = getCategoryOptionsByGrade(gradeId);
 
-  function toggleKnowledgeSelection(selection: KnowledgeSelection) {
-    setKnowledgeSelections((current) =>
-      current.includes(selection)
-        ? current.filter((item) => item !== selection)
-        : [...current, selection],
+  const estimatedPaper = useMemo(
+    () =>
+      buildPracticePaper({
+        gradeId,
+        bookIds,
+        unitIds,
+        contentTypes,
+        categoryIds,
+        questionType: "zh_to_en",
+      }),
+    [bookIds, categoryIds, contentTypes, gradeId, unitIds],
+  );
+
+  function toggle(list: string[], value: string, setter: (next: string[]) => void) {
+    setter(list.includes(value) ? list.filter((item) => item !== value) : [...list, value]);
+  }
+
+  function toggleContent(type: PracticeContentType) {
+    setContentTypes((current) =>
+      current.includes(type) ? current.filter((item) => item !== type) : [...current, type],
     );
   }
 
-  function toggleCategory(categoryId: string) {
-    setCategoryIds((current) =>
-      current.includes(categoryId)
-        ? current.filter((item) => item !== categoryId)
-        : [...current, categoryId],
-    );
+  function handleGradeChange(nextGradeId: string) {
+    const nextBooks = books.filter((book) => book.gradeId === nextGradeId).map((book) => book.id);
+    const firstBookId = nextBooks[0];
+    const nextUnits = units.filter((unit) => unit.gradeId === nextGradeId && unit.bookId === firstBookId);
+    setGradeId(nextGradeId);
+    setBookIds(firstBookId ? [firstBookId] : []);
+    setUnitIds(nextUnits[0] ? [nextUnits[0].id] : []);
   }
 
   function handleGenerate() {
-    const paper = buildPracticePaper({ sourceMode, knowledgeSelections, categoryIds });
-
-    if (paper.questions.length === 0) {
-      setError("请至少选择一个有题目的内容范围。");
+    if (estimatedPaper.questions.length === 0) {
+      setError("请至少选择一个有题目的单元、内容类型或拓展分类。");
       return;
     }
 
-    saveCurrentPaper(paper);
+    saveCurrentPaper(estimatedPaper);
     router.push("/practice");
   }
 
@@ -58,64 +75,98 @@ export default function GeneratorPage() {
       <section className="page-heading">
         <p className="eyebrow">练习生成</p>
         <h1>练习生成器</h1>
-        <p>选择校内知识清单或拓展词汇，生成中文写英文在线练习。</p>
+        <p>按年级、教材、单元和内容类型组合生成中文写英文练习，支持校内知识清单和拓展词汇混合。</p>
       </section>
 
       <section className="form-layout">
-        <article className="panel">
-          <h2>1. 选择内容来源</h2>
-          <div className="segmented-control">
-            <button
-              type="button"
-              className={sourceMode === "knowledge" ? "active" : ""}
-              onClick={() => setSourceMode("knowledge")}
-            >
-              校内知识清单
-            </button>
-            <button
-              type="button"
-              className={sourceMode === "extension" ? "active" : ""}
-              onClick={() => setSourceMode("extension")}
-            >
-              拓展词汇
-            </button>
+        <article className="panel wizard-panel">
+          <div className="choice-group">
+            <h2>1. 选择年级</h2>
+            <select value={gradeId} onChange={(event) => handleGradeChange(event.target.value)}>
+              {grades.map((grade) => (
+                <option key={grade.id} value={grade.id}>{grade.displayName}</option>
+              ))}
+            </select>
           </div>
 
-          {sourceMode === "knowledge" ? (
-            <div className="choice-group">
-              <h3>译林英语 4B · {unit.name}</h3>
-              {knowledgeOptions.map((option) => (
-                <label key={option} className="checkbox-row">
+          <div className="choice-group">
+            <h2>2. 选择教材</h2>
+            <div className="checkbox-grid">
+              {availableBooks.map((book) => (
+                <label key={book.id} className="checkbox-row">
                   <input
                     type="checkbox"
-                    checked={knowledgeSelections.includes(option)}
-                    onChange={() => toggleKnowledgeSelection(option)}
+                    checked={bookIds.includes(book.id)}
+                    onChange={() => toggle(bookIds, book.id, setBookIds)}
                   />
-                  <span>{knowledgeSelectionLabels[option]}</span>
+                  <span>{book.name}</span>
                 </label>
               ))}
             </div>
-          ) : (
-            <div className="choice-group">
-              <h3>拓展词汇分类</h3>
-              {extensionCategories.map((category) => (
-                <label key={category.id} className="checkbox-row">
+          </div>
+
+          <div className="choice-group">
+            <h2>3. 选择单元</h2>
+            <div className="checkbox-grid">
+              {availableUnits.map((unit) => (
+                <label key={unit.id} className="checkbox-row">
                   <input
                     type="checkbox"
-                    checked={categoryIds.includes(category.id)}
-                    onChange={() => toggleCategory(category.id)}
+                    checked={unitIds.includes(unit.id)}
+                    onChange={() => toggle(unitIds, unit.id, setUnitIds)}
                   />
-                  <span>{category.name}</span>
+                  <span>{books.find((book) => book.id === unit.bookId)?.name} · {unit.displayName}</span>
                 </label>
               ))}
             </div>
-          )}
+          </div>
+
+          <div className="choice-group">
+            <h2>4. 选择内容</h2>
+            <div className="checkbox-grid">
+              {contentOptions.map((type) => (
+                <label key={type} className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={contentTypes.includes(type)}
+                    onChange={() => toggleContent(type)}
+                  />
+                  <span>{contentTypeLabels[type]}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {contentTypes.includes("extension") ? (
+            <div className="choice-group">
+              <h2>拓展词汇分类</h2>
+              <div className="checkbox-grid">
+                {availableCategories.map((category) => (
+                  <label key={category.id} className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={categoryIds.includes(category.id)}
+                      onChange={() => toggle(categoryIds, category.id, setCategoryIds)}
+                    />
+                    <span>{category.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="choice-group">
+            <h2>5. 选择题型</h2>
+            <div className="segmented-control">
+              <button type="button" className="active">中文写英文</button>
+            </div>
+          </div>
         </article>
 
         <aside className="panel summary-panel">
-          <h2>练习预览</h2>
+          <h2>6. 生成练习</h2>
           <p>当前将生成</p>
-          <strong>{estimatedCount}</strong>
+          <strong>{estimatedPaper.questions.length}</strong>
           <p>道中文写英文题目</p>
           {error ? <p className="error-text">{error}</p> : null}
           <button type="button" className="primary-button full-width" onClick={handleGenerate}>

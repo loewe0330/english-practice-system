@@ -1,0 +1,48 @@
+import { createUnit } from "../helpers.ts";
+
+export const yilin4bUnit4 = createUnit({
+  id: "yilin-4b-u4",
+  bookId: "yilin-4b",
+  unitNo: 4,
+  title: "Care and feelings",
+  words: [
+    ["tired", "疲劳的", "adj."],
+    ["thirsty", "口渴的", "adj."],
+    ["ill", "不舒服的", "adj."],
+    ["hungry", "感到饿的", "adj."],
+    ["bag", "包，袋", "n."],
+    ["water", "水", "n."],
+    ["home", "到家", "adv."],
+    ["hot", "觉得闷热的", "adj."],
+    ["bread", "面包", "n."],
+    ["dear", "亲爱的", "n."],
+  ],
+  phrases: [
+    ["care about", "关心，关怀"],
+    ["have a rest", "休息一下"],
+    ["take care of others", "关心他人"],
+    ["set the table", "摆放餐具"],
+    ["be quiet", "安静"],
+    ["have a cake", "吃块蛋糕"],
+    ["younger brother", "弟弟"],
+    ["take your bag", "帮你拿包"],
+    ["take a seat", "找个座位"],
+    ["have some water", "喝点水"],
+    ["clean the house", "打扫房间"],
+  ],
+  sentences: [
+    ["I'm hot and thirsty, Bobby. Here's some water for you, Tom.", "波比，我又热又渴。汤姆，这是给你的一些水。"],
+    ["Please be quiet. Let's have a rest. No, I want to play!", "请安静。让我们休息一下吧。不，我想玩一玩！"],
+    ["Can I come tomorrow?", "我明天可以来吗？"],
+    ["What's the matter, Mum? I'm tired. Have a rest, Mum.", "妈妈，怎么了？我累了。妈妈，休息一下吧。"],
+    ["Are you hungry, Mum? Would you like some bread?", "妈妈，你饿吗？你想要一些面包吗？"],
+    ["No, thanks. I'm not hungry. I'm thirsty.", "不了，谢谢。我不饿。我渴了。"],
+    ["It's six thirty. It's time for dinner!", "六点半了。是吃晚饭的时候了！"],
+    ["Great! Let's set the table, Su Hai.", "太棒了！让我们来摆放餐具，苏海。"],
+  ],
+  grammarPoints: [
+    ["have 作动词", "have 可表示拥有、吃喝或进行某项活动。", ["I have a happy family.", "Have some water.", "Have a rest."]],
+    ["take 的用法", "take 可表示拿取物品、帮人拿东西或接某人。", ["She takes her umbrella every day.", "Can you take your little sister home?"]],
+    ["here be 句型", "here is / here are 可表示给你或这里有；here is 接单数或不可数名词，here are 接复数名词。", ["Here's some water for you.", "Here are some books."]],
+  ],
+});

@@ -15,16 +15,33 @@ export type ErrorType =
   | "punctuation_error"
   | "wrong";
 
+export interface GradeLevel {
+  id: string;
+  stage: "primary" | "junior" | "senior";
+  grade: number;
+  semester: "first" | "second";
+  displayName: string;
+  sortOrder: number;
+}
+
 export interface Book {
   id: string;
+  gradeId: string;
+  stage: "primary" | "junior" | "senior";
+  grade: number;
+  semester: "first" | "second";
+  displayName: string;
   name: string;
   publisher: string;
-  grade: string;
+  sortOrder: number;
 }
 
 export interface Unit {
   id: string;
+  gradeId: string;
   bookId: string;
+  unitNo: number;
+  displayName: string;
   name: string;
   title: string;
   order: number;
@@ -36,71 +53,103 @@ export interface Unit {
 
 export interface KnowledgeWord {
   id: string;
+  gradeId: string;
+  bookId: string;
   unitId: string;
   english: string;
   chinese: string;
-  partOfSpeech?: string;
+  partOfSpeech: string;
+  sortOrder: number;
+  isRequired: boolean;
 }
 
 export interface KnowledgePhrase {
   id: string;
+  gradeId: string;
+  bookId: string;
   unitId: string;
   english: string;
   chinese: string;
+  sortOrder: number;
+  isRequired: boolean;
 }
 
 export interface KnowledgeSentence {
   id: string;
+  gradeId: string;
+  bookId: string;
   unitId: string;
   english: string;
   chinese: string;
+  sortOrder: number;
+  isRequired: boolean;
 }
 
 export interface GrammarPoint {
   id: string;
+  gradeId: string;
+  bookId: string;
   unitId: string;
   title: string;
   explanation: string;
   examples: string[];
+  sortOrder: number;
 }
 
 export interface ExtensionCategory {
   id: string;
+  gradeId?: string;
+  recommendedGradeIds: string[];
   name: string;
   description: string;
 }
 
 export interface ExtensionWord {
   id: string;
+  gradeId?: string;
   categoryId: string;
+  recommendedGradeIds: string[];
   english: string;
   chinese: string;
   partOfSpeech: string;
+  sortOrder: number;
   difficulty: "基础" | "进阶" | "易错";
 }
 
 export interface ExtensionPhrase {
   id: string;
+  gradeId?: string;
   categoryId: string;
+  recommendedGradeIds: string[];
   english: string;
   chinese: string;
+  sortOrder: number;
   difficulty: "基础" | "进阶" | "易错";
 }
 
 export interface PracticePaper {
   id: string;
   title: string;
-  sourceMode: "knowledge" | "extension";
-  bookId?: string;
-  unitId?: string;
+  sourceMode: "knowledge" | "extension" | "mixed";
+  gradeId?: string;
+  bookIds?: string[];
+  unitIds?: string[];
   categoryIds?: string[];
+  contentTypes?: PracticeContentType[];
   questions: PracticeQuestion[];
   createdAt: string;
 }
 
+export type PracticeContentType = "words" | "phrases" | "sentences" | "extension";
+
 export interface PracticeQuestion {
   id: string;
+  gradeId?: string;
+  bookId?: string;
+  unitId?: string;
+  categoryId?: string;
   sourceId: string;
+  sourceItemId: string;
   sourceType: SourceType;
   questionType: QuestionType;
   prompt: string;
@@ -134,7 +183,12 @@ export interface PracticeAnswer {
 export interface WrongBookItem {
   id: string;
   questionId: string;
+  gradeId?: string;
+  bookId?: string;
+  unitId?: string;
+  categoryId?: string;
   sourceType: SourceType;
+  sourceItemId?: string;
   questionType: QuestionType;
   sourceLabel: string;
   prompt: string;

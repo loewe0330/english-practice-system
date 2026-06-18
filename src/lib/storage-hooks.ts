@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useSyncExternalStore } from "react";
-import { storageKeys } from "./storage";
-import type { PracticeAttempt, PracticePaper, WrongBookItem } from "./types";
+import { storageKeys } from "./storage.ts";
+import type { PracticeAttempt, PracticePaper, WrongBookItem } from "./types.ts";
 
 function subscribe(callback: () => void) {
   window.addEventListener("storage", callback);

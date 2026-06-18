@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { StatCard } from "@/components/StatCard";
 import { formatSourceType } from "@/lib/practice";
+import { getBookById, getGradeById, getUnitById } from "@/lib/mock-data";
 import { useCurrentPaper, useLastAttempt } from "@/lib/storage-hooks";
 
 export default function ResultsPage() {
@@ -68,6 +69,18 @@ export default function ResultsPage() {
                 <h3>{question.prompt}</h3>
               </div>
               <dl>
+                <div>
+                  <dt>年级</dt>
+                  <dd>{getGradeById(question.gradeId)?.displayName ?? "未分类"}</dd>
+                </div>
+                <div>
+                  <dt>教材</dt>
+                  <dd>{getBookById(question.bookId)?.name ?? "拓展词汇"}</dd>
+                </div>
+                <div>
+                  <dt>单元</dt>
+                  <dd>{getUnitById(question.unitId)?.displayName ?? "分类"}</dd>
+                </div>
                 <div>
                   <dt>你的答案</dt>
                   <dd>{answer?.studentAnswer || "未作答"}</dd>

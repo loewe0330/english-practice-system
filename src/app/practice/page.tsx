@@ -67,19 +67,26 @@ export default function PracticePage() {
       answers: gradedAnswers,
     });
 
-    const wrongItems: WrongBookItem[] = gradedAnswers
-      .filter((answer) => answer.errorType !== "correct")
-      .map((answer) => {
+    const wrongItems: WrongBookItem[] = gradedAnswers.flatMap((answer) => {
+        if (answer.errorType === "correct") {
+          return [];
+        }
+
         const question = paper.questions.find((item) => item.id === answer.questionId);
 
         if (!question) {
-          return null;
+          return [];
         }
 
-        return {
+        return [{
           id: createId("wrong"),
           questionId: question.id,
+          gradeId: question.gradeId,
+          bookId: question.bookId,
+          unitId: question.unitId,
+          categoryId: question.categoryId,
           sourceType: question.sourceType,
+          sourceItemId: question.sourceItemId,
           questionType: question.questionType,
           sourceLabel: question.sourceLabel,
           prompt: question.prompt,
@@ -89,9 +96,8 @@ export default function PracticePage() {
           errorCount: 1,
           firstWrongAt: submittedAt,
           lastWrongAt: submittedAt,
-        };
-      })
-      .filter((item): item is WrongBookItem => item !== null);
+        } satisfies WrongBookItem];
+      });
 
     upsertWrongBookItems(wrongItems);
     router.push("/results");

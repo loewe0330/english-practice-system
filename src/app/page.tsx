@@ -1,6 +1,14 @@
+"use client";
+
 import Link from "next/link";
 import { StatCard } from "@/components/StatCard";
-import { extensionCategories, extensionWords, units } from "@/lib/mock-data";
+import {
+  books,
+  extensionWords,
+  grades,
+  units,
+} from "@/lib/mock-data";
+import { useWrongBookItems } from "@/lib/storage-hooks";
 
 const entryCards = [
   {
@@ -26,7 +34,11 @@ const entryCards = [
 ];
 
 export default function DashboardPage() {
-  const unit = units[0];
+  const wrongItems = useWrongBookItems();
+  const wordCount = units.reduce((total, unit) => total + unit.words.length, 0);
+  const phraseCount = units.reduce((total, unit) => total + unit.phrases.length, 0);
+  const sentenceCount = units.reduce((total, unit) => total + unit.sentences.length, 0);
+  const grammarCount = units.reduce((total, unit) => total + unit.grammarPoints.length, 0);
 
   return (
     <main className="page-shell">
@@ -44,10 +56,14 @@ export default function DashboardPage() {
       </section>
 
       <section className="stats-grid" aria-label="系统概览">
-        <StatCard label="校内单词" value={unit.words.length} hint="译林英语 4B Unit1" />
-        <StatCard label="校内词组" value={unit.phrases.length} hint="可用于中文写英文" />
-        <StatCard label="校内句子" value={unit.sentences.length} hint="支持整句默写" />
-        <StatCard label="拓展词汇" value={extensionWords.length} hint={`${extensionCategories.length} 个分类`} />
+        <StatCard label="年级数量" value={grades.length} hint="当前：四年级下" />
+        <StatCard label="教材数量" value={books.length} hint="译林英语 4B / SM3" />
+        <StatCard label="单元数量" value={units.length} hint="真实知识清单" />
+        <StatCard label="单词数量" value={wordCount + extensionWords.length} hint="含拓展词汇" />
+        <StatCard label="词组数量" value={phraseCount} hint="校内知识清单" />
+        <StatCard label="句子数量" value={sentenceCount} hint="可生成默写" />
+        <StatCard label="语法点数量" value={grammarCount} hint="按单元展示" />
+        <StatCard label="错题数量" value={wrongItems.length} hint="本机 localStorage" />
       </section>
 
       <section className="entry-grid" aria-label="功能入口">

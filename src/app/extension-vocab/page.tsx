@@ -1,4 +1,4 @@
-import { extensionCategories, extensionPhrases, extensionWords } from "@/lib/mock-data";
+import { extensionCategories, extensionPhrases, extensionWords, grades } from "@/lib/mock-data";
 
 export default function ExtensionVocabPage() {
   return (
@@ -31,8 +31,8 @@ export default function ExtensionVocabPage() {
                       <th>英文</th>
                       <th>中文</th>
                       <th>词性</th>
-                      <th>分类</th>
-                      <th>难度</th>
+                  <th>推荐年级</th>
+                  <th>难度</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -41,7 +41,7 @@ export default function ExtensionVocabPage() {
                         <td>{word.english}</td>
                         <td>{word.chinese}</td>
                         <td>{word.partOfSpeech}</td>
-                        <td>{category.name}</td>
+                        <td>{word.recommendedGradeIds.map((id) => grades.find((grade) => grade.id === id)?.displayName ?? "未分类").join("、")}</td>
                         <td>{word.difficulty}</td>
                       </tr>
                     ))}
@@ -50,7 +50,7 @@ export default function ExtensionVocabPage() {
                         <td>{phrase.english}</td>
                         <td>{phrase.chinese}</td>
                         <td>phrase</td>
-                        <td>{category.name}</td>
+                        <td>{phrase.recommendedGradeIds.map((id) => grades.find((grade) => grade.id === id)?.displayName ?? "未分类").join("、")}</td>
                         <td>{phrase.difficulty}</td>
                       </tr>
                     ))}

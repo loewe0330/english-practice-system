@@ -18,6 +18,7 @@ export function PracticeQuestionCard({
   return (
     <label className="question-card">
       <span className="question-number">第 {index + 1} 题</span>
+      <span className="source-chip">{question.sourceLabel}</span>
       <span className="question-prompt">{question.prompt}</span>
       <input
         value={value}
