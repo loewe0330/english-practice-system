@@ -69,3 +69,28 @@ export interface MergeParsedImportResult {
   createdUnit: boolean;
   replacedUnit: boolean;
 }
+
+export type ImportedFileStatus = "pending" | "parsed" | "failed" | "unsupported";
+
+export interface ImportedFileResult {
+  id: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  status: ImportedFileStatus;
+  rawText?: string;
+  parsedImport?: ParsedKnowledgeImport;
+  dataOverride?: KnowledgeDataSet;
+  error?: string;
+  warnings: string[];
+  selected?: boolean;
+}
+
+export interface ImportBatchResult {
+  id: string;
+  files: ImportedFileResult[];
+  successCount: number;
+  failedCount: number;
+  unsupportedCount: number;
+  createdAt: string;
+}

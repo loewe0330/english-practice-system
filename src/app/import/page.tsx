@@ -3,9 +3,12 @@
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { mergeParsedImportIntoData, importDataJson, saveDataOverride } from "@/lib/data-store";
+import { mergeParsedImportIntoData, saveDataOverride } from "@/lib/data-store";
+import { parseImportedFiles } from "@/lib/file-import";
 import { parseKnowledgeText, validateParsedImport } from "@/lib/import-parser";
 import type {
+  ImportBatchResult,
+  ImportedFileResult,
   ParsedImportGrammarPoint,
   ParsedImportPhrase,
   ParsedImportSentence,
@@ -13,6 +16,7 @@ import type {
   ParsedKnowledgeImport,
 } from "@/lib/import-types";
 import { useEffectiveData } from "@/lib/storage-hooks";
+import type { KnowledgeDataSet } from "@/lib/types";
 
 type PreviewTab = "words" | "phrases" | "sentences" | "grammar" | "phonics" | "writing" | "warnings";
 
@@ -32,22 +36,32 @@ function formatFileSize(size: number) {
   return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+function createId(prefix: string) {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 function createEmptyParsedItem(prefix: string, order: number) {
   return `${prefix}-manual-${Date.now()}-${order}`;
 }
 
+function createBatch(files: ImportedFileResult[]): ImportBatchResult {
+  return {
+    id: createId("batch"),
+    files,
+    successCount: files.filter((file) => file.status === "parsed").length,
+    failedCount: files.filter((file) => file.status === "failed").length,
+    unsupportedCount: files.filter((file) => file.status === "unsupported").length,
+    createdAt: new Date().toISOString(),
+  };
+}
+
 export default function ImportPage() {
   const router = useRouter();
   const data = useEffectiveData();
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [fileMessage, setFileMessage] = useState("");
   const [text, setText] = useState("");
   const [gradeId, setGradeId] = useState("primary-g4b");
   const [bookChoice, setBookChoice] = useState("yilin-4b");
@@ -55,13 +69,17 @@ export default function ImportPage() {
   const [unitNo, setUnitNo] = useState(1);
   const [replaceExistingUnit, setReplaceExistingUnit] = useState(false);
   const [activeTab, setActiveTab] = useState<PreviewTab>("words");
-  const [parsedImport, setParsedImport] = useState<ParsedKnowledgeImport | null>(null);
+  const [batch, setBatch] = useState<ImportBatchResult | null>(null);
+  const [activeFileId, setActiveFileId] = useState("");
   const [message, setMessage] = useState("");
+  const [isParsing, setIsParsing] = useState(false);
 
   const availableBooks = data.books.filter((book) => book.gradeId === gradeId);
   const selectedBook = data.books.find((book) => book.id === bookChoice);
   const bookName = bookChoice === "custom" ? customBookName.trim() || "自定义教材" : selectedBook?.name ?? "译林英语 4B";
-  const bookId = bookChoice === "custom" ? `custom-${slugify(bookName) || "book"}` : bookChoice;
+  const bookId = bookChoice === "custom" ? `custom-${bookName.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "book"}` : bookChoice;
+  const activeFile = batch?.files.find((file) => file.id === activeFileId) ?? batch?.files.find((file) => file.parsedImport);
+  const parsedImport = activeFile?.parsedImport ?? null;
 
   const counts = useMemo(() => {
     if (!parsedImport) {
@@ -79,80 +97,109 @@ export default function ImportPage() {
     };
   }, [parsedImport]);
 
-  async function handleFileChange(file: File | undefined) {
-    if (!file) return;
-
-    setSelectedFile(file);
-    setMessage("");
-    const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
-
-    if (extension === "txt" || extension === "md") {
-      setText(await file.text());
-      setFileMessage("已读取文本内容，可点击解析文本。");
-      return;
-    }
-
-    if (extension === "json") {
-      const result = importDataJson(await file.text());
-      if (result.ok) {
-        setFileMessage("JSON 导入成功，已保存为本地覆盖数据。");
-      } else {
-        setFileMessage(result.error);
-      }
-      return;
-    }
-
-    setFileMessage("当前浏览器版暂不直接解析此格式，请先复制文本到下方文本框。后续版本将支持自动解析。");
-  }
-
-  function handleParse() {
-    if (!text.trim()) {
-      setMessage("请先粘贴或读取知识清单文本。");
-      return;
-    }
-
-    const parsed = parseKnowledgeText(text, {
+  function defaultOptions() {
+    return {
       gradeId,
       bookId,
       bookName,
       unitNo,
       unitTitle: `Unit${unitNo}`,
-    });
+    };
+  }
 
-    setParsedImport(parsed);
+  function setBatchFiles(files: ImportedFileResult[]) {
+    const nextBatch = createBatch(files);
+    setBatch(nextBatch);
+    setActiveFileId(nextBatch.files.find((file) => file.parsedImport || file.dataOverride)?.id ?? nextBatch.files[0]?.id ?? "");
+  }
+
+  async function handleFiles(files: FileList | File[]) {
+    const selectedFiles = Array.from(files);
+
+    if (selectedFiles.length === 0) {
+      return;
+    }
+
+    setIsParsing(true);
+    setMessage("正在解析文件...");
+
+    try {
+      const result = await parseImportedFiles(selectedFiles, defaultOptions());
+      setBatch(result);
+      setActiveFileId(result.files.find((file) => file.parsedImport || file.dataOverride)?.id ?? result.files[0]?.id ?? "");
+      setActiveTab("words");
+      setMessage(`解析完成：成功 ${result.successCount}，失败 ${result.failedCount}，不支持 ${result.unsupportedCount}。`);
+    } finally {
+      setIsParsing(false);
+    }
+  }
+
+  async function handleParseText() {
+    if (!text.trim()) {
+      setMessage("请先粘贴知识清单文本。");
+      return;
+    }
+
+    const parsed = parseKnowledgeText(text, defaultOptions());
+    const fileResult: ImportedFileResult = {
+      id: createId("paste"),
+      fileName: "粘贴文本",
+      fileType: "text",
+      fileSize: new Blob([text]).size,
+      status: parsed.words.length || parsed.phrases.length || parsed.sentences.length ? "parsed" : "failed",
+      rawText: text,
+      parsedImport: parsed,
+      error: parsed.words.length || parsed.phrases.length || parsed.sentences.length
+        ? undefined
+        : "parseKnowledgeText 没有解析出任何单词、词组或句子。",
+      warnings: parsed.warnings,
+      selected: true,
+    };
+
+    setBatchFiles([fileResult]);
     setActiveTab("words");
-    setMessage(`解析完成：单词 ${parsed.words.length}，词组 ${parsed.phrases.length}，句子 ${parsed.sentences.length}，语法 ${parsed.grammarPoints.length}。`);
+    setMessage("文本解析完成。");
+  }
+
+  function updateActiveParsed(updater: (parsed: ParsedKnowledgeImport) => ParsedKnowledgeImport) {
+    if (!activeFile) return;
+    setBatch((current) => {
+      if (!current) return current;
+
+      return createBatch(
+        current.files.map((file) => {
+          if (file.id !== activeFile.id || !file.parsedImport) {
+            return file;
+          }
+
+          const nextParsedImport = updater(file.parsedImport);
+          return { ...file, parsedImport: nextParsedImport, warnings: nextParsedImport.warnings };
+        }),
+      );
+    });
   }
 
   function updateWord(id: string, patch: Partial<ParsedImportWord>) {
-    setParsedImport((current) =>
-      current ? { ...current, words: current.words.map((word) => (word.id === id ? { ...word, ...patch } : word)) } : current,
-    );
+    updateActiveParsed((current) => ({ ...current, words: current.words.map((word) => (word.id === id ? { ...word, ...patch } : word)) }));
   }
 
   function updatePhrase(id: string, patch: Partial<ParsedImportPhrase>) {
-    setParsedImport((current) =>
-      current ? { ...current, phrases: current.phrases.map((phrase) => (phrase.id === id ? { ...phrase, ...patch } : phrase)) } : current,
-    );
+    updateActiveParsed((current) => ({ ...current, phrases: current.phrases.map((phrase) => (phrase.id === id ? { ...phrase, ...patch } : phrase)) }));
   }
 
   function updateSentence(id: string, patch: Partial<ParsedImportSentence>) {
-    setParsedImport((current) =>
-      current ? { ...current, sentences: current.sentences.map((sentence) => (sentence.id === id ? { ...sentence, ...patch } : sentence)) } : current,
-    );
+    updateActiveParsed((current) => ({ ...current, sentences: current.sentences.map((sentence) => (sentence.id === id ? { ...sentence, ...patch } : sentence)) }));
   }
 
   function updateGrammar(id: string, patch: Partial<ParsedImportGrammarPoint>) {
-    setParsedImport((current) =>
-      current
-        ? { ...current, grammarPoints: current.grammarPoints.map((point) => (point.id === id ? { ...point, ...patch } : point)) }
-        : current,
-    );
+    updateActiveParsed((current) => ({
+      ...current,
+      grammarPoints: current.grammarPoints.map((point) => (point.id === id ? { ...point, ...patch } : point)),
+    }));
   }
 
   function deletePreviewRow(type: Exclude<PreviewTab, "phonics" | "writing" | "warnings">, id: string) {
-    setParsedImport((current) => {
-      if (!current) return current;
+    updateActiveParsed((current) => {
       if (type === "words") return { ...current, words: current.words.filter((word) => word.id !== id) };
       if (type === "phrases") return { ...current, phrases: current.phrases.filter((phrase) => phrase.id !== id) };
       if (type === "sentences") return { ...current, sentences: current.sentences.filter((sentence) => sentence.id !== id) };
@@ -161,87 +208,138 @@ export default function ImportPage() {
   }
 
   function addPreviewRow(type: Exclude<PreviewTab, "phonics" | "writing" | "warnings">) {
-    setParsedImport((current) => {
-      if (!current) return current;
+    updateActiveParsed((current) => {
       if (type === "words") {
         const order = current.words.length + 1;
-        return {
-          ...current,
-          words: [...current.words, { id: createEmptyParsedItem("word", order), en: "", zh: "", pos: "", order, required: true }],
-        };
+        return { ...current, words: [...current.words, { id: createEmptyParsedItem("word", order), en: "", zh: "", pos: "", order, required: true }] };
       }
       if (type === "phrases") {
         const order = current.phrases.length + 1;
-        return {
-          ...current,
-          phrases: [...current.phrases, { id: createEmptyParsedItem("phrase", order), en: "", zh: "", order, required: true }],
-        };
+        return { ...current, phrases: [...current.phrases, { id: createEmptyParsedItem("phrase", order), en: "", zh: "", order, required: true }] };
       }
       if (type === "sentences") {
         const order = current.sentences.length + 1;
-        return {
-          ...current,
-          sentences: [...current.sentences, { id: createEmptyParsedItem("sentence", order), en: "", zh: "", order, required: true }],
-        };
+        return { ...current, sentences: [...current.sentences, { id: createEmptyParsedItem("sentence", order), en: "", zh: "", order, required: true }] };
       }
       const order = current.grammarPoints.length + 1;
-      return {
-        ...current,
-        grammarPoints: [...current.grammarPoints, { id: createEmptyParsedItem("grammar", order), title: "", content: "", examples: [], order }],
-      };
+      return { ...current, grammarPoints: [...current.grammarPoints, { id: createEmptyParsedItem("grammar", order), title: "", content: "", examples: [], order }] };
     });
   }
 
   function updateTextList(type: "phonics" | "writing", value: string) {
-    setParsedImport((current) => current ? { ...current, [type]: value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean) } : current);
+    updateActiveParsed((current) => ({ ...current, [type]: value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean) }));
   }
 
-  function handleConfirmImport() {
-    if (!parsedImport) {
-      setMessage("请先解析文本。");
-      return;
-    }
+  function toggleFileSelected(fileId: string) {
+    setBatch((current) => {
+      if (!current) return current;
+      return createBatch(current.files.map((file) => (file.id === fileId ? { ...file, selected: !file.selected } : file)));
+    });
+  }
 
-    const validationWarnings = validateParsedImport(parsedImport);
-    if (validationWarnings.length > 0) {
-      setParsedImport({ ...parsedImport, warnings: [...parsedImport.warnings, ...validationWarnings] });
+  function removeFile(fileId: string) {
+    if (!batch) return;
+
+    const next = createBatch(batch.files.filter((file) => file.id !== fileId));
+    setBatch(next);
+    if (activeFileId === fileId) {
+      setActiveFileId(next.files[0]?.id ?? "");
+    }
+  }
+
+  function validateFiles(files: ImportedFileResult[]) {
+    const nextFiles = [...(batch?.files ?? [])];
+    let hasValidationError = false;
+
+    files.forEach((file) => {
+      if (!file.parsedImport) return;
+      const validationWarnings = validateParsedImport(file.parsedImport);
+      if (validationWarnings.length > 0) {
+        hasValidationError = true;
+        const index = nextFiles.findIndex((item) => item.id === file.id);
+        if (index >= 0) {
+          nextFiles[index] = {
+            ...nextFiles[index],
+            warnings: [...nextFiles[index].warnings, ...validationWarnings],
+            parsedImport: {
+              ...file.parsedImport,
+              warnings: [...file.parsedImport.warnings, ...validationWarnings],
+            },
+          };
+        }
+      }
+    });
+
+    if (hasValidationError) {
+      setBatchFiles(nextFiles);
       setActiveTab("warnings");
       setMessage("还有需要校对的问题，请先处理警告。");
+      return false;
+    }
+
+    return true;
+  }
+
+  function importFiles(files: ImportedFileResult[]) {
+    if (files.length === 0) {
+      setMessage("没有可导入的成功文件。");
       return;
     }
 
-    const result = mergeParsedImportIntoData(parsedImport, data, { replaceExistingUnit });
-    saveDataOverride(result.data);
+    if (!validateFiles(files)) {
+      return;
+    }
+
+    let nextData: KnowledgeDataSet = data;
+    let importedCount = 0;
+    let skippedCount = 0;
+
+    files.forEach((file) => {
+      if (file.dataOverride) {
+        nextData = file.dataOverride;
+        importedCount += 1;
+        return;
+      }
+
+      if (file.parsedImport) {
+        nextData = mergeParsedImportIntoData(file.parsedImport, nextData, { replaceExistingUnit }).data;
+        importedCount += 1;
+        return;
+      }
+
+      skippedCount += 1;
+    });
+
+    saveDataOverride(nextData);
+    setMessage(`导入完成：成功 ${importedCount}，跳过 ${skippedCount}。`);
     router.push("/data-review?imported=1");
   }
+
+  const successfulFiles = batch?.files.filter((file) => file.status === "parsed") ?? [];
+  const selectedSuccessfulFiles = successfulFiles.filter((file) => file.selected);
 
   return (
     <main className="page-shell">
       <section className="page-heading">
         <p className="eyebrow">知识清单导入</p>
         <h1>导入知识清单</h1>
-        <p>上传或粘贴知识清单文本，自动解析后先人工校对，再确认合并到本地知识库。</p>
+        <p>支持 TXT、MD、JSON、DOCX、文字版 PDF 和 ZIP 批量解析；解析后先人工校对，再确认入库。</p>
       </section>
 
       <section className="form-layout">
         <article className="panel wizard-panel">
           <div className="choice-group">
-            <h2>1. 上传区</h2>
+            <h2>1. 文件选择区</h2>
             <label className="upload-dropzone">
-              <span>选择 PDF / DOCX / TXT / MD / JSON / ZIP 文件</span>
+              <span>选择 PDF / DOCX / TXT / MD / JSON / ZIP 文件，可多选</span>
               <input
+                multiple
                 type="file"
-                accept=".pdf,.docx,.txt,.md,.json,.zip,application/json,text/plain,text/markdown"
-                onChange={(event) => void handleFileChange(event.target.files?.[0])}
+                accept=".pdf,.docx,.txt,.md,.json,.zip,application/json,text/plain,text/markdown,application/pdf,application/zip"
+                onChange={(event) => void handleFiles(event.target.files ?? [])}
               />
             </label>
-            {selectedFile ? (
-              <div className="file-summary">
-                <strong>{selectedFile.name}</strong>
-                <span>{formatFileSize(selectedFile.size)} · {selectedFile.type || "未知类型"}</span>
-              </div>
-            ) : null}
-            {fileMessage ? <p className="helper-text">{fileMessage}</p> : null}
+            <p className="helper-text">PDF 仅支持可复制文本的文字版 PDF；扫描版 PDF 当前不做 OCR。</p>
           </div>
 
           <div className="choice-group">
@@ -251,12 +349,12 @@ export default function ImportPage() {
               value={text}
               onChange={(event) => setText(event.target.value)}
               rows={12}
-              placeholder="把知识清单全文粘贴到这里，例如：一、四会词&词组..."
+              placeholder="也可以把知识清单全文粘贴到这里，例如：一、四会词&词组..."
             />
           </div>
 
           <div className="choice-group">
-            <h2>3. 解析设置</h2>
+            <h2>3. 默认解析设置</h2>
             <div className="admin-form-grid">
               <label>
                 <span>年级</span>
@@ -282,7 +380,7 @@ export default function ImportPage() {
                 </label>
               ) : null}
               <label>
-                <span>单元</span>
+                <span>默认单元</span>
                 <select value={unitNo} onChange={(event) => setUnitNo(Number(event.target.value))}>
                   {Array.from({ length: 12 }, (_, index) => index + 1).map((value) => (
                     <option key={value} value={value}>Unit{value}</option>
@@ -299,41 +397,122 @@ export default function ImportPage() {
               </label>
               <label className="checkbox-row plain-checkbox">
                 <input type="checkbox" checked={!replaceExistingUnit} readOnly />
-                <span>作为新内容追加</span>
+                <span>默认追加并去重</span>
               </label>
             </div>
-            <button type="button" className="primary-button" onClick={handleParse}>解析文本</button>
+            <button type="button" className="primary-button" onClick={() => void handleParseText()}>
+              解析粘贴文本
+            </button>
             {message ? <p className="error-text">{message}</p> : null}
           </div>
         </article>
 
         <aside className="panel summary-panel">
-          <h2>解析结果</h2>
-          {counts ? (
+          <h2>批量导入</h2>
+          {batch ? (
             <div className="import-counts">
+              <span>成功 <strong>{batch.successCount}</strong></span>
+              <span>失败 <strong>{batch.failedCount}</strong></span>
+              <span>不支持 <strong>{batch.unsupportedCount}</strong></span>
+              <span>选中 <strong>{selectedSuccessfulFiles.length}</strong></span>
+            </div>
+          ) : (
+            <p>选择文件或解析文本后，会在这里显示批次汇总。</p>
+          )}
+          {counts ? (
+            <div className="import-counts compact-counts">
               <span>单词 <strong>{counts.words}</strong></span>
               <span>词组 <strong>{counts.phrases}</strong></span>
               <span>句子 <strong>{counts.sentences}</strong></span>
               <span>语法 <strong>{counts.grammar}</strong></span>
-              <span>语音 <strong>{counts.phonics}</strong></span>
-              <span>写作 <strong>{counts.writing}</strong></span>
-              <span>警告 <strong>{counts.warnings}</strong></span>
             </div>
-          ) : (
-            <p>解析后会在这里显示数量。</p>
-          )}
-          <button type="button" className="primary-button full-width" onClick={handleConfirmImport}>
-            确认入库
-          </button>
+          ) : null}
+          <div className="stack-actions">
+            <button type="button" className="primary-button full-width" disabled={!activeFile?.parsedImport && !activeFile?.dataOverride} onClick={() => activeFile && importFiles([activeFile])}>
+              确认当前文件入库
+            </button>
+            <button type="button" className="secondary-button full-width" disabled={successfulFiles.length === 0} onClick={() => importFiles(successfulFiles)}>
+              确认全部成功文件入库
+            </button>
+            <button type="button" className="secondary-button full-width" disabled={selectedSuccessfulFiles.length === 0} onClick={() => importFiles(selectedSuccessfulFiles)}>
+              仅导入选中文件
+            </button>
+            <button type="button" className="secondary-button full-width" disabled={!batch || isParsing} onClick={() => { setBatch(null); setActiveFileId(""); setMessage("已清空批次。"); }}>
+              清空批次
+            </button>
+          </div>
         </aside>
       </section>
+
+      {batch ? (
+        <section className="panel import-preview-panel">
+          <div className="section-title-row">
+            <div>
+              <h2>4. 多文件解析结果</h2>
+              <p>点击查看 / 编辑后，可在下方校对该文件的解析内容。</p>
+            </div>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>选择</th>
+                  <th>文件名</th>
+                  <th>大小</th>
+                  <th>类型</th>
+                  <th>教材</th>
+                  <th>单元</th>
+                  <th>单词</th>
+                  <th>词组</th>
+                  <th>句子</th>
+                  <th>语法</th>
+                  <th>状态</th>
+                  <th>错误信息</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {batch.files.map((file) => (
+                  <tr key={file.id} className={file.id === activeFileId ? "selected-row" : undefined}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(file.selected)}
+                        disabled={file.status !== "parsed"}
+                        onChange={() => toggleFileSelected(file.id)}
+                      />
+                    </td>
+                    <td>{file.fileName}</td>
+                    <td>{formatFileSize(file.fileSize)}</td>
+                    <td>{file.fileType}</td>
+                    <td>{file.parsedImport?.bookName ?? (file.dataOverride ? "完整数据 JSON" : "-")}</td>
+                    <td>{file.parsedImport ? `Unit${file.parsedImport.unitNo}` : "-"}</td>
+                    <td>{file.parsedImport?.words.length ?? "-"}</td>
+                    <td>{file.parsedImport?.phrases.length ?? "-"}</td>
+                    <td>{file.parsedImport?.sentences.length ?? "-"}</td>
+                    <td>{file.parsedImport?.grammarPoints.length ?? "-"}</td>
+                    <td>{file.status}</td>
+                    <td>{file.error ?? file.warnings[0] ?? "-"}</td>
+                    <td>
+                      <div className="table-actions">
+                        <button type="button" className="secondary-button" onClick={() => setActiveFileId(file.id)}>查看 / 编辑</button>
+                        <button type="button" className="secondary-button danger-button" onClick={() => removeFile(file.id)}>移除</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       {parsedImport ? (
         <section className="panel import-preview-panel">
           <div className="section-title-row">
             <div>
-              <h2>4. 解析结果预览</h2>
-              <p>{parsedImport.bookName} · Unit{parsedImport.unitNo} · {parsedImport.unitTitle}</p>
+              <h2>5. 当前文件预览编辑</h2>
+              <p>{activeFile?.fileName} · {parsedImport.bookName} · Unit{parsedImport.unitNo} · {parsedImport.unitTitle}</p>
             </div>
           </div>
 

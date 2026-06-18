@@ -24,6 +24,31 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+export function inferImportMetadata(
+  text: string,
+  fileName: string,
+  defaults: ParseKnowledgeTextOptions,
+): ParseKnowledgeTextOptions {
+  const source = `${fileName}\n${text.slice(0, 1200)}`;
+  const normalized = source.replace(/\s+/g, " ");
+  const unitMatch = normalized.match(/\bUnit\s*(\d{1,2})\b/i) ?? normalized.match(/\bU(\d{1,2})\b/i);
+  const isSm3 = /SM\s*3|SM3/i.test(normalized);
+  const isYilin = /译林|Yilin|4B/i.test(normalized);
+  const unitNo = unitMatch ? Number(unitMatch[1]) : defaults.unitNo;
+  const bookId = isSm3 ? "sm3" : isYilin ? "yilin-4b" : defaults.bookId;
+  const bookName = isSm3 ? "SM3" : isYilin ? "译林英语 4B" : defaults.bookName;
+  const titleMatch = normalized.match(/(?:Unit\s*\d{1,2}|U\d{1,2})\s*[-—:：]?\s*([^一二三四五六七八九十\n\r]{2,40})/i);
+
+  return {
+    ...defaults,
+    gradeId: /四下|4B|SM\s*3|SM3/i.test(normalized) ? "primary-g4b" : defaults.gradeId,
+    bookId,
+    bookName,
+    unitNo,
+    unitTitle: titleMatch?.[1]?.trim() || `Unit${unitNo}`,
+  };
+}
+
 function normalizeLine(line: string) {
   return line
     .replace(/\u00a0/g, " ")
@@ -293,6 +318,10 @@ export function parseKnowledgeText(text: string, options: ParseKnowledgeTextOpti
 
   if (sections.length === 0) {
     parsed.warnings.push("未找到可解析的内容。");
+  }
+
+  if (parsed.words.length === 0 && parsed.phrases.length === 0 && parsed.sentences.length === 0) {
+    parsed.warnings.push("未解析出单词、词组或句子，请检查文本格式。");
   }
 
   return parsed;

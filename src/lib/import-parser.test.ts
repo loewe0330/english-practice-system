@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseKnowledgeText } from "./import-parser.ts";
+import { inferImportMetadata, parseKnowledgeText } from "./import-parser.ts";
 
 const baseOptions = {
   gradeId: "primary-g4b",
@@ -98,4 +98,37 @@ test("collect warning for unknown content", () => {
   const parsed = parseKnowledgeText("这是一段没有标题的内容", baseOptions);
 
   assert.ok(parsed.warnings.some((warning) => warning.includes("未识别内容")));
+});
+
+test("inferImportMetadata detects unit from file name", () => {
+  const metadata = inferImportMetadata("", "译林Unit 8知识清单.txt", baseOptions);
+
+  assert.equal(metadata.bookId, "yilin-4b");
+  assert.equal(metadata.unitNo, 8);
+});
+
+test("inferImportMetadata detects SM3 from body", () => {
+  const metadata = inferImportMetadata("SM3 Unit5 Sea animals\n一、四会词&词组", "knowledge.txt", baseOptions);
+
+  assert.equal(metadata.bookId, "sm3");
+  assert.equal(metadata.bookName, "SM3");
+  assert.equal(metadata.unitNo, 5);
+});
+
+test("parseKnowledgeText keeps common multi-file format stable", () => {
+  const parsed = parseKnowledgeText(
+    [
+      "SM3 Unit6",
+      "一、认读词&词组",
+      "museum n.博物馆",
+      "go on a trip 去旅行",
+      "二、四会句型",
+      "We went to the museum. 我们去了博物馆。",
+    ].join("\n"),
+    { ...baseOptions, bookId: "sm3", bookName: "SM3", unitNo: 6 },
+  );
+
+  assert.equal(parsed.words[0].en, "museum");
+  assert.equal(parsed.phrases[0].en, "go on a trip");
+  assert.equal(parsed.sentences[0].en, "We went to the museum.");
 });

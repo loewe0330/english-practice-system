@@ -117,3 +117,20 @@ test("merge parsed import replaces existing unit when requested", () => {
   assert.equal(mergedUnit?.words.length, 1);
   assert.equal(mergedUnit?.words[0].english, "only");
 });
+
+test("merge parsed imports supports batch-style multiple units", () => {
+  const data = getDefaultData();
+  const first = createParsedImport({ unitId: "yilin-4b-u2", unitNo: 2 });
+  const second = createParsedImport({
+    unitId: "sm3-u9",
+    bookId: "sm3",
+    bookName: "SM3",
+    unitNo: 9,
+    words: [{ id: "word-sm3", en: "museum", zh: "博物馆", pos: "n.", order: 1, required: true }],
+  });
+  const firstResult = mergeParsedImportIntoData(first, data);
+  const secondResult = mergeParsedImportIntoData(second, firstResult.data);
+
+  assert.ok(secondResult.data.units.some((unit) => unit.id === "yilin-4b-u2"));
+  assert.ok(secondResult.data.units.some((unit) => unit.id === "sm3-u9"));
+});
